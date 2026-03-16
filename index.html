@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+
+<style>
+
+:root{
+ --url:url("");
+}
+
+html,body{
+ width:100%;
+ height:100%;
+ margin:0;
+ padding:0;
+ overflow:hidden;
+ font-family:Consolas,'Courier New',monospace;
+ color:white;
+
+ background:linear-gradient(-45deg,#0f0f0f,#1a1a1a,#111,#1c1c1c);
+ background-size:400% 400%;
+ animation:bgMove 15s ease infinite;
+}
+
+@keyframes bgMove{
+0%{background-position:0% 50%;}
+50%{background-position:100% 50%;}
+100%{background-position:0% 50%;}
+}
+
+#particles{
+ position:fixed;
+ top:0;
+ left:0;
+ width:100%;
+ height:100%;
+ z-index:0;
+ pointer-events:none;
+}
+
+#container{
+ width:100%;
+ height:100%;
+ position:relative;
+ z-index:1;
+}
+
+.monaco-editor .cursor{
+ background:#00ffff !important;
+ box-shadow:0 0 8px #00ffff,0 0 15px #00ffff;
+ animation:cursorPulse 1s infinite alternate;
+}
+
+@keyframes cursorPulse{
+ from{opacity:0.5;}
+ to{opacity:1;}
+}
+
+.type-glow{
+	animation:typeFlash 0.15s ease;
+}
+
+@keyframes typeFlash{
+	0%{
+		background:rgba(0,255,255,0.4);
+		box-shadow:0 0 8px cyan;
+	}
+	100%{
+		background:transparent;
+		box-shadow:none;
+	}
+}
+
+.type-ripple{
+	position:relative;
+}
+
+.type-ripple::after{
+	content:"";
+	position:absolute;
+	left:50%;
+	top:50%;
+	width:6px;
+	height:6px;
+	border-radius:50%;
+	background:rgba(0,255,255,0.9);
+	transform:translate(-50%,-50%);
+	animation:rippleExpand 0.4s ease-out forwards;
+	box-shadow:0 0 8px cyan,0 0 16px cyan;
+}
+
+@keyframes rippleExpand{
+	0%{
+		width:6px;
+		height:6px;
+		opacity:1;
+	}
+	100%{
+		width:40px;
+		height:40px;
+		opacity:0;
+	}
+}
+
+</style>
+
+</head>
+
+<body>
+
+<canvas id="particles"></canvas>
+<div id="container"></div>
+
+<script src="vs/loader.js"></script>
+
+<script>
+
+require.config({
+ paths:{'vs':'vs'}
+});
+
+var GetText;
+var SetText;
+var SetTheme;
+var SetScroll;
+var ShowErr;
+var Refresh;
+
+var SwitchMinimap;
+var SwitchReadonly;
+var SwitchRenderWhitespace;
+var SwitchLinks;
+var SwitchLineHeight;
+var SwitchFontSize;
+var SwitchFolding;
+var SwitchAutoIndent;
+var SwitchFontFamily;
+var SwitchFontLigatures;
+var SwitchWordWrap;
+
+var AddIntellisense;
+
+var editor;
+var Proposals=[];
+
+require(['vs/editor/editor.main'],function(){
+
+function getDependencyProposals(){
+
+ let newProposals=[]
+
+ for(let i=0;i<Proposals.length;i++){
+
+  const element=Proposals[i]
+
+  let newElement={}
+
+  for(const key in element){
+
+   if(key=="__children__") continue
+
+   newElement[key]=element[key]
+
+  }
+
+  newProposals.push(newElement)
+
+ }
+
+ return newProposals
+}
+
+monaco.editor.defineTheme('net-theme-light',{
+ base:'vs',
+ inherit:true,
+ rules:[
+ {token:'global',foreground:'000000'},
+ {token:'keyword',foreground:'ff6a00'},
+ {token:'comment',foreground:'666666'},
+ {token:'number',foreground:'ffc600'},
+ {token:'string',foreground:'ff8c3a'}
+ ]
+})
+
+monaco.editor.defineTheme('net-theme-dark',{
+ base:'vs-dark',
+ inherit:true,
+ rules:[
+ {token:'global',foreground:'FFFFFF',fontStyle:"bold"},
+ {token:'keyword',foreground:'ff6a00',fontStyle:"bold"},
+ {token:'comment',foreground:'666666'},
+ {token:'number',foreground:'ffc600'},
+ {token:'string',foreground:'ff8c3a'}
+ ]
+})
+
+monaco.editor.defineTheme('PDark',{
+ base:'vs-dark',
+ inherit:true,
+ rules:[
+ {token:'',foreground:'#C3CCDB'},
+ {token:'keyword',foreground:'#BB9AF7'},
+ {token:'comment',foreground:'#666666',fontStyle:'italic'},
+ {token:'string',foreground:'#9ECE6A'},
+ {token:'number',foreground:'#FF9E64'},
+ {token:'global',foreground:'#7AA2F7'}
+ ],
+ colors:{
+ 'editor.background':'#171717',
+ 'editorLineNumber.foreground':'#7A7A7A',
+ 'editorLineNumber.activeForeground':'#BBBBBB'
+ }
+})
+
+require(['vs/basic-languages/monaco.contribution'],function(){
+
+monaco.languages.registerCompletionItemProvider('lua',{
+
+ provideCompletionItems:function(){
+
+  return{
+   suggestions:getDependencyProposals()
+  }
+
+ },
+
+ triggerCharacters:['.',':','"']
+
+})
+
+editor=monaco.editor.create(document.getElementById('container'),{
+
+ value:'print("github.com/explosioncreatebox")',
+
+ language:'lua',
+
+ theme:"PDark",
+
+ fontSize:16,
+
+ fontFamily:"JetBrains Mono, Consolas, monospace",
+
+ folding:true,
+
+ dragAndDrop:true,
+
+ links:true,
+
+ minimap:{
+ enabled:false
+ },
+
+ smoothScrolling:true,
+
+ cursorBlinking:"smooth",
+
+ cursorSmoothCaretAnimation:true,
+
+ foldingHighlight:false,
+
+ fontLigatures:true,
+
+ formatOnPaste:true,
+
+ scrollBeyondLastLine:false,
+
+ padding:{
+ top:6
+ }
+
+})
+
+editor.updateOptions({
+    "semanticHighlighting.enabled": true
+});
+
+const style = document.createElement('style');
+style.innerHTML = `
+    .monaco-editor, .monaco-editor-background, .monaco-editor .margin {
+        background: transparent !important;
+    }
+`;
+
+document.head.appendChild(style);
+
+editor.onDidType(function () {
+
+	const pos = editor.getPosition();
+
+	const decoration = editor.deltaDecorations([], [
+		{
+			range: new monaco.Range(
+				pos.lineNumber,
+				pos.column-1,
+				pos.lineNumber,
+				pos.column
+			),
+			options: {
+				inlineClassName: "type-glow"
+			}
+		}
+	]);
+
+	setTimeout(()=>{
+		editor.deltaDecorations(decoration, []);
+	},150);
+
+});
+
+editor.onDidType(function () {
+
+	const pos = editor.getPosition();
+
+	const deco = editor.deltaDecorations([], [
+		{
+			range: new monaco.Range(
+				pos.lineNumber,
+				pos.column-1,
+				pos.lineNumber,
+				pos.column
+			),
+			options:{
+				inlineClassName:"type-ripple"
+			}
+		}
+	]);
+
+	setTimeout(()=>{
+		editor.deltaDecorations(deco,[]);
+	},400);
+
+});
+
+editor.getModel().updateOptions({insertSpaces:false})
+
+})
+
+window.onresize=function(){
+ editor.layout()
+}
+
+Cut=function(){
+ editor.focus()
+ document.execCommand('cut')
+}
+
+Copy=function(){
+ editor.focus()
+ document.execCommand('copy')
+}
+
+Paste=function(){
+ editor.focus()
+ document.execCommand('paste')
+}
+
+Undo=function(){
+ editor.focus()
+ document.execCommand('undo')
+}
+
+Redo=function(){
+ editor.focus()
+ document.execCommand('redo')
+}
+
+Delete=function(){
+ editor.focus()
+ document.execCommand('delete')
+}
+
+SelectAll=function(){
+ editor.focus()
+ document.execCommand('selectAll')
+}
+
+GetText=function(){
+ return String(editor.getValue())
+}
+
+SetText=function(x){
+
+ try{
+  editor.setValue(JSON.parse(`${String(x)}`))
+ }
+ catch(e){
+  editor.setValue(String(x))
+ }
+
+}
+
+GetProposals=function(){
+ return Proposals
+}
+
+OnDidChangeContent=function(callback){
+ return editor.onDidChangeModelContent(()=>{
+  callback(editor.getValue())
+ })
+}
+
+OnDidChangeCursorPosition=function(callback){
+ return editor.onDidChangeCursorPosition((event)=>{
+  callback(event.position)
+ })
+}
+
+SetTheme=function(themeName){
+
+ if(themeName=="PDark") monaco.editor.setTheme('PDark')
+
+ if(themeName=="Dark") monaco.editor.setTheme('net-theme-dark')
+
+ if(themeName=="Light") monaco.editor.setTheme('net-theme-light')
+
+}
+
+SwitchMinimap=function(flag){
+ editor.updateOptions({minimap:{enabled:flag}})
+}
+
+SwitchReadonly=function(flag){
+ editor.updateOptions({readOnly:flag})
+}
+
+SwitchRenderWhitespace=function(op){
+ editor.updateOptions({renderWhitespace:op})
+}
+
+SwitchLinks=function(flag){
+ editor.updateOptions({links:flag})
+}
+
+SwitchLineHeight=function(num){
+ editor.updateOptions({lineHeight:num})
+}
+
+SwitchFontSize=function(num){
+ editor.updateOptions({fontSize:num})
+}
+
+SwitchFolding=function(flag){
+ editor.updateOptions({folding:flag})
+}
+
+SwitchAutoIndent=function(flag){
+ editor.updateOptions({autoIndent:flag})
+}
+
+SwitchWordWrap=function(flag){
+ editor.updateOptions({wordWrap:flag})
+}
+
+SwitchFontFamily=function(name){
+ editor.updateOptions({fontFamily:name})
+}
+
+SwitchFontLigatures=function(flag){
+ editor.updateOptions({fontLigatures:flag})
+}
+
+ShowErr=function(line,column,endline,endcolumn,msg){
+
+ editor.revealPositionInCenter({lineNumber:line,column:column})
+
+ editor.deltaDecorations([],[{
+  range:new monaco.Range(line,column,endline,endcolumn),
+  options:{
+   inlineClassName:'squiggly-error',
+   hoverMessage:{value:msg}
+  }
+ }])
+
+}
+
+AddSnippet=function(kindName,snippetName,data){
+
+ let snippet={
+ insertTextRules:monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+ kind:monaco.languages.CompletionItemKind[kindName]
+ }
+
+ for(const key in data){
+
+ let value=data[key]
+
+ if(key=="insertText" && typeof value=="object"){
+ value=value.join("\n")
+ }
+
+ snippet[key]=value
+
+ }
+
+ if(!snippet.label) snippet.label=snippetName
+ if(!snippet.insertText) snippet.insertText=snippetName
+
+ Proposals.push(snippet)
+
+}
+
+AddRawSnippet=function(data){
+ Proposals.push(data)
+}
+
+SetScroll=function(line){
+ editor.revealLineInCenter({lineNumber:line})
+}
+
+Refresh=function(){
+
+ var text=GetText()
+
+ SetText("")
+
+ editor.trigger('keyboard','type',{text:text})
+
+}
+
+})
+
+</script>
+
+<script>
+
+const canvas=document.getElementById("particles")
+const ctx=canvas.getContext("2d")
+
+function resize(){
+ canvas.width=window.innerWidth
+ canvas.height=window.innerHeight
+}
+
+resize()
+window.addEventListener("resize",resize)
+
+let particles=[]
+
+for(let i=0;i<80;i++){
+
+ particles.push({
+
+  x:Math.random()*canvas.width,
+  y:Math.random()*canvas.height,
+  vx:(Math.random()-0.5)*0.6,
+  vy:(Math.random()-0.5)*0.6,
+  r:Math.random()*2+1
+
+ })
+
+}
+
+function animate(){
+
+ ctx.clearRect(0,0,canvas.width,canvas.height)
+
+ particles.forEach(p=>{
+
+  p.x+=p.vx
+  p.y+=p.vy
+
+  if(p.x<0||p.x>canvas.width) p.vx*=-1
+  if(p.y<0||p.y>canvas.height) p.vy*=-1
+
+  ctx.beginPath()
+  ctx.arc(p.x,p.y,p.r,0,Math.PI*2)
+  ctx.fillStyle="rgba(0,255,255,0.6)"
+  ctx.fill()
+
+ })
+
+ requestAnimationFrame(animate)
+
+}
+
+animate()
+
+</script>
+
+</body>
+</html>
